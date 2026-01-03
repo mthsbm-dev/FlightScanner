@@ -1,0 +1,30 @@
+[tequila]
+api_key = YOUR_TEQUILA_API_KEY_HERE
+
+[search]
+# Comma-separated origin IATA codes or major hubs. Default includes common European hubs.
+origins = FRA, LHR, MUC, CDG, AMS, MAD, BCN, ZRH, BER
+currency = EUR
+max_price = 1800
+min_duration_hours = 8
+date_from = 2026-02-01
+date_to = 2026-08-31
+limit = 20
+# Optional: cabin class (Y=Economy, W=PremiumEco, C=Business, F=First)
+cabin_class = C
+# Maximum stopovers per direction (integer, e.g. 0 = nonstop, 1 = one stop)
+max_stopovers = 2
+
+[notifications]
+# Telegram bot (optional)
+telegram_bot_token = 
+telegram_chat_id = 
+
+[smtp]
+# SMTP settings (optional)
+# host = smtp.example.com
+# port = 587
+# username = your_smtp_user
+# password = your_smtp_password
+# sender = flights@example.com
+# recipient = you@example.com
