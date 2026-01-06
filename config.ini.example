@@ -14,6 +14,10 @@ limit = 20
 cabin_class = C
 # Maximum stopovers per direction (integer, e.g. 0 = nonstop, 1 = one stop)
 max_stopovers = 2
+# Backend: 'tequila' (default) or 'localfile' to read sample results from disk
+backend = localfile
+# If using localfile backend, set the path to a JSON file containing an array of matches
+localfile_path = data/sample_matches.json
 
 [notifications]
 # Telegram bot (optional)

@@ -1,0 +1,25 @@
+[
+  {
+    "id": "sample-1",
+    "price": 1499,
+    "cityTo": "Bangkok",
+    "countryTo": {"name": "Thailand"},
+    "route": [
+      {"cityFrom": "Frankfurt", "cityTo": "Bangkok", "airline": "LH", "aircraft": "A350", "return": 0}
+    ],
+    "duration": {"total": 3600 * 12},
+    "deep_link": "https://example.com/book/sample-1"
+  },
+  {
+    "id": "sample-2",
+    "price": 1799,
+    "cityTo": "Johannesburg",
+    "countryTo": {"name": "South Africa"},
+    "route": [
+      {"cityFrom": "London", "cityTo": "Johannesburg", "airline": "BA", "aircraft": "B777", "return": 0},
+      {"cityFrom": "Johannesburg", "cityTo": "London", "airline": "BA", "aircraft": "B777", "return": 1}
+    ],
+    "duration": {"total": 3600 * 11.5},
+    "deep_link": "https://example.com/book/sample-2"
+  }
+]

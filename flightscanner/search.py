@@ -2,6 +2,8 @@ from typing import List
 from .tequila_client import TequilaClient
 from .airports import resolve_origins
 from datetime import timedelta
+import json
+from pathlib import Path
 
 LIE_FLAT_AIRCRAFT = {"A330", "A350", "A380", "B787", "B777", "B747"}
 
@@ -47,7 +49,16 @@ def filter_matches(matches: List[dict], min_duration_hours: int = 8, require_lie
 def run_search(cfg, once: bool = True):
     api_key = cfg.get("tequila", "api_key", fallback="").strip()
     if not api_key:
-        raise RuntimeError("TEQUILA API key not set in config.ini")
+        # fallback: support alternative backends (localfile) so user can test without an API key
+        backend = cfg.get("search", "backend", fallback="localfile").strip().lower()
+        if backend == "localfile":
+            path = cfg.get("search", "localfile_path", fallback="data/sample_matches.json")
+            p = Path(path)
+            if not p.exists():
+                raise RuntimeError(f"Localfile backend enabled but {p} not found")
+            data = json.loads(p.read_text(encoding="utf-8"))
+            return data
+        raise RuntimeError("TEQUILA API key not set in config.ini and no fallback backend available")
 
     raw_origins = cfg.get("search", "origins", fallback=None)
     fly_from = resolve_origins(raw_origins)
