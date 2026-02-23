@@ -1,6 +1,12 @@
 [tequila]
 api_key = YOUR_TEQUILA_API_KEY_HERE
 
+[amadeus]
+# Amadeus API - alternative to Tequila
+# Get your credentials at https://developers.amadeus.com/
+client_id = YOUR_AMADEUS_CLIENT_ID
+client_secret = YOUR_AMADEUS_CLIENT_SECRET
+
 [search]
 # Comma-separated origin IATA codes or major hubs. Default includes common European hubs.
 origins = FRA, LHR, MUC, CDG, AMS, MAD, BCN, ZRH, BER
@@ -14,8 +20,8 @@ limit = 20
 cabin_class = C
 # Maximum stopovers per direction (integer, e.g. 0 = nonstop, 1 = one stop)
 max_stopovers = 2
-# Backend: 'tequila' (default) or 'localfile' to read sample results from disk
-backend = localfile
+# Backend: 'tequila', 'amadeus', or 'localfile' to read sample results from disk
+backend = amadeus
 # If using localfile backend, set the path to a JSON file containing an array of matches
 localfile_path = data/sample_matches.json
 
