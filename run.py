@@ -141,7 +141,7 @@ def main():
         return
 
     # Log all matches to file
-    log_file = Path("flights.log")
+    log_file = Path("output/flights.log")
     log_results(matches, log_file)
     
     # Print verbose output to stdout
