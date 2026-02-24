@@ -3,9 +3,7 @@ from typing import List
 
 # Opinionated list of European hubs (IATA codes). Add/remove as desired.
 DEFAULT_EUROPEAN_HUBS = [
-    "FRA", "LHR", "MUC", "CDG", "AMS", "MAD", "BCN", "ZRH",
-    "FCO", "DUS", "MAN", "CPH", "ARN", "VIE", "OSL", "LIS",
-    "HEL", "BRU", "SVO", "BER", "DUB"
+    "FRA", "MUC", "CDG", "AMS", "MAD", "LIS", "BER"
 ]
 
 

@@ -16,7 +16,8 @@ DESTINATIONS = {
     ],
     # Caribbean
     "caribbean": [
-        "CUN",  # Cancun, Mexico
+        "PTP",  # Pointe-à-Pitre, Guadeloupe
+        "FDF",  # Fort-de-France, Martinique
         "PUJ",  # Punta Cana, Dominican Republic
         "MBJ",  # Montego Bay, Jamaica
     ],
