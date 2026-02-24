@@ -32,3 +32,28 @@ def get_match_id(match: dict) -> str:
     }
     raw = json.dumps(key, sort_keys=True)
     return hashlib.sha1(raw.encode()).hexdigest()
+
+
+# Search progress state (for incremental/rresumable searches)
+SEARCH_STATE_FILE = Path(".search_state.json")
+
+
+def load_search_state() -> dict:
+    """Load search progress state."""
+    if not SEARCH_STATE_FILE.exists():
+        return {"completed_origins": [], "results": []}
+    try:
+        return json.loads(SEARCH_STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"completed_origins": [], "results": []}
+
+
+def save_search_state(state: dict) -> None:
+    """Save search progress state."""
+    SEARCH_STATE_FILE.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+
+def clear_search_state() -> None:
+    """Clear search progress state."""
+    if SEARCH_STATE_FILE.exists():
+        SEARCH_STATE_FILE.unlink()

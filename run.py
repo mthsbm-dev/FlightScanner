@@ -30,9 +30,22 @@ def main():
     parser.add_argument("--once", action="store_true", help="Run once and exit")
     parser.add_argument("--test-telegram", action="store_true", help="Send a test Telegram message using configured token/chat_id and exit")
     parser.add_argument("--reset-sent", action="store_true", help="Clear persisted sent matches and exit")
+    parser.add_argument("--origin-index", type=int, default=None, help="Only search from this origin index (0-based)")
     args = parser.parse_args()
 
     cfg = load_config()
+    
+    # If --origin-index is provided, only use that one origin
+    if args.origin_index is not None:
+        from flightscanner.airports import resolve_origins
+        all_origins = resolve_origins(cfg.get("search", "origins", fallback=""))
+        if args.origin_index >= len(all_origins):
+            print(f"Error: origin_index {args.origin_index} is out of range (max: {len(all_origins)-1})")
+            sys.exit(1)
+        single_origin = all_origins[args.origin_index]
+        cfg.set("search", "origins", single_origin)
+        print(f"Running with only origin: {single_origin} (index {args.origin_index})")
+    
     if args.test_telegram:
         subject = "FlightScanner: Test message"
         body = "This is a test message from FlightScanner. If you received this, Telegram config is correct."
@@ -41,7 +54,6 @@ def main():
         return
     if args.reset_sent:
         # clear persisted sent matches
-        from flightscanner.storage import save_sent
         save_sent(set())
         print("Persisted sent matches cleared.")
         return

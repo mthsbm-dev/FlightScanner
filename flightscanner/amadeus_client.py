@@ -24,6 +24,9 @@ class AmadeusClient:
         travel_class = 'BUSINESS' if cabin == 'C' else 'ECONOMY'
         
         # Search from each origin to each destination
+        # Track only cheapest flight per route
+        cheapest_by_route = {}  # (origin, destination) -> flight
+        
         for origin in fly_from:
             print(f"Searching from {origin}...", flush=True)
             for dest in destinations:
@@ -42,26 +45,22 @@ class AmadeusClient:
                         for offer in response.data:
                             normalized = self._normalize_offer(offer, origin)
                             if normalized:
-                                results.append(normalized)
+                                route_key = (origin, normalized.get('cityTo', ''))
+                                existing = cheapest_by_route.get(route_key)
+                                if existing is None or float(normalized.get('price', float('inf'))) < float(existing.get('price', float('inf'))):
+                                    cheapest_by_route[route_key] = normalized
                 except ResponseError as e:
                     # Silently skip errors (rate limits, etc.)
                     continue
                 except Exception as e:
                     continue
         
+        results = list(cheapest_by_route.values())
+        
         # Show progress after each origin completes
         print(f"  -> Found {len(results)} flights so far from {origin}", flush=True)
         
-        # Remove duplicates based on price + route
-        unique_results = []
-        seen = set()
-        for r in results:
-            key = (r.get('cityFrom'), r.get('cityTo'), r.get('price'))
-            if key not in seen:
-                seen.add(key)
-                unique_results.append(r)
-        
-        return unique_results
+        return results
 
     def _normalize_offer(self, offer: dict, origin: str) -> dict:
         """
