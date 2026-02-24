@@ -89,6 +89,8 @@ class AmadeusClient:
                 'route': [self._normalize_segment(s) for s in segments],
                 'deep_link': '',  # Amadeus doesn't provide deep links in offers
                 'booking_token': offer.get('id', ''),
+                # Add departure date
+                'dep_date': first_segment.get('departure', {}).get('at', ''),
             }
         except Exception as e:
             print(f"Error normalizing offer: {e}", flush=True)
