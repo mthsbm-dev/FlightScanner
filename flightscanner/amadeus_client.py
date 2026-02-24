@@ -25,7 +25,7 @@ class AmadeusClient:
         
         # Search from each origin to each destination
         for origin in fly_from:
-            print(f"Searching from {origin}...")
+            print(f"Searching from {origin}...", flush=True)
             for dest in destinations:
                 try:
                     response = self.client.shopping.flight_offers_search.get(
@@ -48,6 +48,9 @@ class AmadeusClient:
                     continue
                 except Exception as e:
                     continue
+        
+        # Show progress after each origin completes
+        print(f"  -> Found {len(results)} flights so far from {origin}", flush=True)
         
         # Remove duplicates based on price + route
         unique_results = []
@@ -89,7 +92,7 @@ class AmadeusClient:
                 'booking_token': offer.get('id', ''),
             }
         except Exception as e:
-            print(f"Error normalizing offer: {e}")
+            print(f"Error normalizing offer: {e}", flush=True)
             return {}
 
     def _normalize_segment(self, segment: dict) -> dict:
