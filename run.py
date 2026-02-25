@@ -2,7 +2,7 @@ import argparse
 from flightscanner.config import load_config
 from flightscanner.search import run_search
 from flightscanner.notifier import notify
-from flightscanner.storage import load_sent, save_sent, get_match_id
+from flightscanner.storage import load_sent, save_sent, get_match_id, init_storage, save_flight_results
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -106,7 +106,8 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config()
-    
+    init_storage(cfg)
+
     # If --origin-index is provided, only use that one origin
     if args.origin_index is not None:
         from flightscanner.airports import resolve_origins
@@ -139,6 +140,9 @@ def main():
     if not matches:
         print("No matches found.")
         return
+
+    # Persist results via the active storage backend
+    save_flight_results(matches)
 
     # Log all matches to file
     log_file = Path("output/flights.log")

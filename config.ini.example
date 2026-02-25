@@ -30,6 +30,17 @@ localfile_path = data/sample_matches.json
 telegram_bot_token = 
 telegram_chat_id = 
 
+[storage]
+# Storage backend: 'json' (default, files on disk) or 'mongodb'
+backend = json
+# MongoDB settings (only used when backend = mongodb)
+# mongo_host = localhost
+# mongo_port = 27017
+# mongo_db = flightscanner
+# mongo_username =
+# mongo_password =
+# mongo_auth_source = admin
+
 [smtp]
 # SMTP settings (optional)
 # host = smtp.example.com
