@@ -2,6 +2,7 @@ import requests
 from typing import List, Dict, Any
 from amadeus import Client, ResponseError
 from .destinations import ALL_DESTINATIONS, IATA_TO_CITY
+from bson import ObjectId
 
 # MongoDB logging for Amadeus API calls
 try:
@@ -23,20 +24,38 @@ def get_amadeus_log_col():
     except Exception:
         return None
 
-def log_amadeus_call(endpoint: str, params: dict, response_status: str, error: str = None):
+def log_amadeus_call(endpoint: str, params: dict, response_status: str, error: str = None, response_data: dict = None):
     """Log Amadeus API call to MongoDB."""
     from datetime import datetime, timezone
     col = get_amadeus_log_col()
     if col is None:
         return
     
+    # Flatten params to top-level fields
+    flat_params = {f"param_{k}": str(v)[:150] for k, v in params.items()}
+    
+    # Build entry with flattened params + response
     entry = {
+        "_id": str(ObjectId()),
         "timestamp": datetime.now(timezone.utc),
         "endpoint": endpoint,
-        "params": {k: str(v)[:100] for k, v in params.items()},  # Truncate long values
         "response_status": response_status,
-        "error": error[:200] if error else None,
+        "error": error[:300] if error else None,
     }
+    # Add flattened params
+    entry.update(flat_params)
+    # Add response summary (first few offers)
+    if response_data:
+        offers = response_data.get('data', []) if isinstance(response_data, dict) else []
+        entry["offer_count"] = len(offers)
+        if offers:
+            # Extract key info from first offer
+            first = offers[0]
+            entry["price_total"] = first.get('price', {}).get('total')
+            entry["price_currency"] = first.get('price', {}).get('currency')
+            entry["first_segment_dep"] = first.get('itineraries', [{}])[0].get('segments', [{}])[0].get('departure', {}).get('iataCode') if first.get('itineraries') else None
+            entry["first_segment_arr"] = first.get('itineraries', [{}])[0].get('segments', [{}])[-1].get('arrival', {}).get('iataCode') if first.get('itineraries') else None
+    
     col.insert_one(entry)
 
 
@@ -78,7 +97,9 @@ class AmadeusClient:
                 }
                 try:
                     response = self.client.shopping.flight_offers_search.get(**params)
-                    log_amadeus_call("flight_offers_search", params, "success")
+                    # Convert response to dict for logging - wrap the data list
+                    response_dict = {'data': response.data} if response.data else {'data': []}
+                    log_amadeus_call("flight_offers_search", params, "success", response_data=response_dict)
                     if response.data:
                         for offer in response.data:
                             normalized = self._normalize_offer(offer, origin)
