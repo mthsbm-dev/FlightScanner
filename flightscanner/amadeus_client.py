@@ -1,7 +1,43 @@
 import requests
 from typing import List, Dict, Any
 from amadeus import Client, ResponseError
-from .destinations import ALL_DESTINATIONS
+from .destinations import ALL_DESTINATIONS, IATA_TO_CITY
+
+# MongoDB logging for Amadeus API calls
+try:
+    from pymongo import MongoClient as MongoClientPy
+    MONGO_AVAILABLE = True
+except ImportError:
+    MONGO_AVAILABLE = False
+
+def get_amadeus_log_col():
+    """Get MongoDB collection for Amadeus logging."""
+    if not MONGO_AVAILABLE:
+        return None
+    try:
+        client = MongoClientPy("mongodb://localhost:27017")
+        col = client["openclaw"]["amadeus_calls"]
+        col.create_index("timestamp")
+        col.create_index("endpoint")
+        return col
+    except Exception:
+        return None
+
+def log_amadeus_call(endpoint: str, params: dict, response_status: str, error: str = None):
+    """Log Amadeus API call to MongoDB."""
+    from datetime import datetime, timezone
+    col = get_amadeus_log_col()
+    if col is None:
+        return
+    
+    entry = {
+        "timestamp": datetime.now(timezone.utc),
+        "endpoint": endpoint,
+        "params": {k: str(v)[:100] for k, v in params.items()},  # Truncate long values
+        "response_status": response_status,
+        "error": error[:200] if error else None,
+    }
+    col.insert_one(entry)
 
 
 class AmadeusClient:
@@ -30,17 +66,19 @@ class AmadeusClient:
         for origin in fly_from:
             print(f"Searching from {origin}...", flush=True)
             for dest in destinations:
+                params = {
+                    'originLocationCode': origin,
+                    'destinationLocationCode': dest,
+                    'departureDate': date_from.replace('/', '-'),
+                    'returnDate': date_to.replace('/', '-'),
+                    'adults': 1,
+                    'maxPrice': price_to,
+                    'max': limit,
+                    'travelClass': travel_class
+                }
                 try:
-                    response = self.client.shopping.flight_offers_search.get(
-                        originLocationCode=origin,
-                        destinationLocationCode=dest,
-                        departureDate=date_from.replace('/', '-'),
-                        returnDate=date_to.replace('/', '-'),
-                        adults=1,
-                        maxPrice=price_to,
-                        max=limit,
-                        travelClass=travel_class
-                    )
+                    response = self.client.shopping.flight_offers_search.get(**params)
+                    log_amadeus_call("flight_offers_search", params, "success")
                     if response.data:
                         for offer in response.data:
                             normalized = self._normalize_offer(offer, origin)
@@ -50,7 +88,10 @@ class AmadeusClient:
                                 if existing is None or float(normalized.get('price', float('inf'))) < float(existing.get('price', float('inf'))):
                                     cheapest_by_route[route_key] = normalized
                 except ResponseError as e:
+                    log_amadeus_call("flight_offers_search", params, "error", str(e))
                     # Silently skip errors (rate limits, etc.)
+                except Exception as e:
+                    log_amadeus_call("flight_offers_search", params, "error", str(e))
                     continue
                 except Exception as e:
                     continue
@@ -79,11 +120,16 @@ class AmadeusClient:
             first_segment = segments[0] if segments else {}
             last_segment = segments[-1] if segments else {}
             
+            city_from = first_segment.get('departure', {}).get('iataCode', origin)
+            city_to = last_segment.get('arrival', {}).get('iataCode', 'UNK')
+
             return {
                 'price': float(price),
                 'currency': currency,
-                'cityFrom': first_segment.get('departure', {}).get('iataCode', origin),
-                'cityTo': last_segment.get('arrival', {}).get('iataCode', 'UNK'),
+                'cityFrom': city_from,
+                'cityTo': city_to,
+                'cityFromName': IATA_TO_CITY.get(city_from, city_from),
+                'cityToName': IATA_TO_CITY.get(city_to, city_to),
                 'countryTo': {'name': last_segment.get('arrival', {}).get('iataCode', 'Unknown')},
                 'duration': {'total': self._parse_duration(first_itinerary.get('duration', 'PT0M'))},
                 'route': [self._normalize_segment(s) for s in segments],

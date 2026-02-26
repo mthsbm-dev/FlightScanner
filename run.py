@@ -14,9 +14,13 @@ def format_match(m: dict, verbose: bool = True) -> str:
     city_to = m.get("cityTo")
     country_to = m.get("countryTo", {}).get("name", "")
     route = m.get("route", [])
-    
+
     # Get origin - try different field names (Amadeus uses cityFrom, Tequila might use cityFrom from segment)
     origin = m.get("cityFrom", "?")
+
+    # City names (fall back to IATA code if not available)
+    origin_name = m.get("cityFromName", origin)
+    dest_name = m.get("cityToName", city_to)
     
     # Get airport codes
     dep_airport = m.get("cityFrom", "?")
@@ -68,7 +72,7 @@ def format_match(m: dict, verbose: bool = True) -> str:
     # Build output
     if verbose:
         lines = [
-            f"✈️ {origin} ({dep_airport}) → {city_to} ({arr_airport})",
+            f"✈️ {dep_airport} ({origin_name}) → {arr_airport} ({dest_name})",
             f"   Datum: {dep_date}",
             f"   Preis: {price} EUR",
             f"   Airline: {airlines_str}",
@@ -79,7 +83,7 @@ def format_match(m: dict, verbose: bool = True) -> str:
             lines.append(f"   Buchung: {deep[:80]}...")
         return "\n".join(lines)
     else:
-        return f"{origin} -> {city_to}: {price} EUR, {airlines_str}"
+        return f"{dep_airport} ({origin_name}) -> {arr_airport} ({dest_name}): {price} EUR, {airlines_str}"
 
 
 def log_results(matches: list, log_file: Path):

@@ -56,3 +56,39 @@ for code in ALL_DESTINATIONS:
         unique_destinations.append(code)
 
 ALL_DESTINATIONS = unique_destinations
+
+# IATA code -> city name mapping (extracted from comments above + common origins)
+IATA_TO_CITY = {
+    # Destinations
+    "YVR": "Vancouver",
+    "YOW": "Ottawa",
+    "YHZ": "Halifax",
+    "YYZ": "Toronto",
+    "MEX": "Mexico City",
+    "CUN": "Cancun",
+    "PTP": "Pointe-à-Pitre",
+    "FDF": "Fort-de-France",
+    "PUJ": "Punta Cana",
+    "MBJ": "Montego Bay",
+    "GRU": "Sao Paulo",
+    "EZE": "Buenos Aires",
+    "SCL": "Santiago",
+    "BOG": "Bogota",
+    "LIM": "Lima",
+    "NRT": "Tokyo",
+    "ICN": "Seoul",
+    "SIN": "Singapore",
+    "BKK": "Bangkok",
+    "KUL": "Kuala Lumpur",
+    "MNL": "Manila",
+    "HAN": "Hanoi",
+    "JKT": "Jakarta",
+    # European hubs (common origins)
+    "FRA": "Frankfurt",
+    "MUC": "Munich",
+    "CDG": "Paris",
+    "AMS": "Amsterdam",
+    "MAD": "Madrid",
+    "LIS": "Lisbon",
+    "BER": "Berlin",
+}
