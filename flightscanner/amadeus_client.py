@@ -86,8 +86,8 @@ class AmadeusClient:
         dep_start = datetime.strptime(date_from.replace('/', '-'), '%Y-%m-%d')
         dep_end = datetime.strptime(date_to.replace('/', '-'), '%Y-%m-%d')
         
-        # Trip durations to search (in days)
-        trip_durations = [7, 14, 21]
+        # Trip durations to search (in days) - fixed to 20-22 days
+        trip_durations = [20, 21, 22]
         
         # Generate date combinations to search
         # For each departure day, search for different trip durations
@@ -101,7 +101,7 @@ class AmadeusClient:
             current += timedelta(days=1)  # Each day as potential departure
         
         # Limit searches to avoid too many API calls
-        max_searches = 30  # Max searches per route
+        max_searches = 20  # Max searches per route
         if len(search_dates) > max_searches:
             # Sample evenly across the range
             step = len(search_dates) // max_searches
