@@ -73,9 +73,25 @@ def run_search(cfg, once: bool = True):
         limit = cfg.getint("search", "limit", fallback=20)
         cabin = cfg.get("search", "cabin_class", fallback=None)
         max_stopovers = cfg.getint("search", "max_stopovers", fallback=None)
+        use_flexible_dates = cfg.getboolean("search", "flexible_dates", fallback=True)
         
         client = AmadeusClient(amadeus_client_id, amadeus_client_secret)
-        matches = client.search(fly_from=fly_from, date_from=date_from, date_to=date_to, currency=currency, price_to=price_to, limit=limit, cabin=cabin, max_stopovers=max_stopovers)
+        
+        if use_flexible_dates:
+            # Use Flight Dates API to find cheapest date combinations
+            matches = client.search_flexible_dates(
+                fly_from=fly_from, date_from=date_from, date_to=date_to,
+                currency=currency, price_to=price_to, limit=limit,
+                cabin=cabin, max_stopovers=max_stopovers
+            )
+        else:
+            # Use simple range search (less accurate, faster)
+            matches = client.search(
+                fly_from=fly_from, date_from=date_from, date_to=date_to,
+                currency=currency, price_to=price_to, limit=limit,
+                cabin=cabin, max_stopovers=max_stopovers
+            )
+        
         filtered = filter_matches(matches, min_duration_hours=cfg.getint("search", "min_duration_hours", fallback=8), max_stopovers=max_stopovers)
         return filtered
     

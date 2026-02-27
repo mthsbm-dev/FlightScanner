@@ -50,6 +50,25 @@ def format_match(m: dict, verbose: bool = True) -> str:
         except:
             pass
     
+    # Get return date
+    ret_date = m.get("ret_date", "")
+    if not ret_date and route:
+        # Try to get return date from segments marked with return=1
+        return_segs = [seg for seg in route if seg.get("return") == 1]
+        if return_segs:
+            ret_date = return_segs[0].get("aTime")  # arrival time at destination for return
+            if ret_date:
+                ret_date = datetime.fromtimestamp(ret_date).strftime("%Y-%m-%d")
+    if not ret_date:
+        ret_date = "?"
+    elif isinstance(ret_date, str) and ret_date and ret_date != "?":
+        # Format ISO date
+        try:
+            dt = datetime.fromisoformat(ret_date.replace("Z", "+00:00"))
+            ret_date = dt.strftime("%Y-%m-%d")
+        except:
+            pass
+    
     # Get airlines and flight numbers
     airlines_info = []
     for seg in route:
@@ -73,7 +92,7 @@ def format_match(m: dict, verbose: bool = True) -> str:
     if verbose:
         lines = [
             f"✈️ {dep_airport} ({origin_name}) → {arr_airport} ({dest_name})",
-            f"   Datum: {dep_date}",
+            f"   Datum: {dep_date} – {ret_date}",
             f"   Preis: {price} EUR",
             f"   Airline: {airlines_str}",
             f"   Dauer: {hours:.1f}h, Stopps: {stops}",

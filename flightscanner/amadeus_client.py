@@ -67,6 +67,86 @@ class AmadeusClient:
         )
         self.max_destinations = max_destinations  # Rate limiting protection
 
+    def search_flexible_dates(self, fly_from: List[str], date_from: str, date_to: str, currency: str = "EUR", price_to: int = 1800, limit: int = 20, cabin: str | None = None, max_stopovers: int | None = None) -> List[Dict[str, Any]]:
+        """
+        Search for flights by splitting the date range into months and combining results.
+        
+        This is a fallback when Flight Dates API is not available.
+        """
+        from datetime import datetime
+        results = []
+        destinations = ALL_DESTINATIONS[:self.max_destinations]
+        travel_class = 'BUSINESS' if cabin == 'C' else 'ECONOMY'
+        
+        # Parse date range and split into monthly chunks
+        dep_start = datetime.strptime(date_from.replace('/', '-'), '%Y-%m-%d')
+        dep_end = datetime.strptime(date_to.replace('/', '-'), '%Y-%m-%d')
+        
+        # Generate monthly ranges
+        month_ranges = []
+        current = dep_start
+        while current <= dep_end:
+            month_end = datetime(current.year, current.month, 28)  # Safe upper bound
+            if month_end > dep_end:
+                month_end = dep_end
+            month_ranges.append((current.strftime('%Y-%m-%d'), month_end.strftime('%Y-%m-%d')))
+            # Move to next month
+            if current.month == 12:
+                current = datetime(current.year + 1, 1, 1)
+            else:
+                current = datetime(current.year, current.month + 1, 1)
+        
+        print(f"  Searching {len(month_ranges)} month ranges: {month_ranges}", flush=True)
+        
+        cheapest_by_route = {}  # (origin, destination) -> flight
+        
+        for origin in fly_from:
+            print(f"Searching from {origin} (monthly split)...", flush=True)
+            for dest in destinations:
+                best_price = float('inf')
+                best_flight = None
+                
+                # Search each month range
+                for month_from, month_to in month_ranges:
+                    params = {
+                        'originLocationCode': origin,
+                        'destinationLocationCode': dest,
+                        'departureDate': month_from,
+                        'returnDate': month_to,
+                        'adults': 1,
+                        'maxPrice': price_to,
+                        'max': limit,
+                        'travelClass': travel_class
+                    }
+                    try:
+                        response = self.client.shopping.flight_offers_search.get(**params)
+                        response_dict = {'data': response.data} if response.data else {'data': []}
+                        log_amadeus_call("flight_offers_search", params, "success", response_data=response_dict)
+                        
+                        if response.data:
+                            for offer in response.data:
+                                normalized = self._normalize_offer(offer, origin)
+                                if normalized:
+                                    price = float(normalized.get('price', float('inf')))
+                                    if price < best_price:
+                                        best_price = price
+                                        best_flight = normalized
+                    except ResponseError as e:
+                        log_amadeus_call("flight_offers_search", params, "error", str(e))
+                    except Exception as e:
+                        log_amadeus_call("flight_offers_search", params, "error", str(e))
+                        continue
+                
+                if best_flight:
+                    route_key = (origin, best_flight.get('cityTo', ''))
+                    existing = cheapest_by_route.get(route_key)
+                    if existing is None or best_price < float(existing.get('price', float('inf'))):
+                        cheapest_by_route[route_key] = best_flight
+        
+        results = list(cheapest_by_route.values())
+        print(f"  -> Found {len(results)} flights from {origin}", flush=True)
+        return results
+
     def search(self, fly_from: List[str], date_from: str, date_to: str, currency: str = "EUR", price_to: int = 1800, limit: int = 20, cabin: str | None = None, max_stopovers: int | None = None) -> List[Dict[str, Any]]:
         """
         Search for flights using Amadeus API.
@@ -144,6 +224,14 @@ class AmadeusClient:
             city_from = first_segment.get('departure', {}).get('iataCode', origin)
             city_to = last_segment.get('arrival', {}).get('iataCode', 'UNK')
 
+            # Get return itinerary (second itinerary is the return flight)
+            return_itinerary = itineraries[1] if len(itineraries) > 1 else {}
+            return_segments = return_itinerary.get('segments', [])
+            return_segment = return_segments[0] if return_segments else {}
+            
+            # Extract return date from first segment of return itinerary
+            ret_date = return_segment.get('departure', {}).get('at', '') if return_segment else ''
+
             return {
                 'price': float(price),
                 'currency': currency,
@@ -156,8 +244,9 @@ class AmadeusClient:
                 'route': [self._normalize_segment(s) for s in segments],
                 'deep_link': '',  # Amadeus doesn't provide deep links in offers
                 'booking_token': offer.get('id', ''),
-                # Add departure date
+                # Add departure and return dates
                 'dep_date': first_segment.get('departure', {}).get('at', ''),
+                'ret_date': ret_date,
             }
         except Exception as e:
             print(f"Error normalizing offer: {e}", flush=True)
