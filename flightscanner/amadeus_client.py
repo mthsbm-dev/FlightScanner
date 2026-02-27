@@ -71,51 +71,59 @@ class AmadeusClient:
 
     def search_flexible_dates(self, fly_from: List[str], date_from: str, date_to: str, currency: str = "EUR", price_to: int = 1800, limit: int = 20, cabin: str | None = None, max_stopovers: int | None = None, destinations: List[str] = None) -> List[Dict[str, Any]]:
         """
-        Search for flights by splitting the date range into months and combining results.
+        Search for flights by iterating through different date windows.
         
-        This is a fallback when Flight Dates API is not available.
+        Uses a sliding window approach to find the cheapest flights across
+        the entire date range.
         """
-        from datetime import datetime
+        from datetime import datetime, timedelta
         results = []
         # Use provided destinations or fall back to default
         search_dests = destinations if destinations else self.destinations
         travel_class = 'BUSINESS' if cabin == 'C' else 'ECONOMY'
         
-        # Parse date range and split into monthly chunks
+        # Parse date range
         dep_start = datetime.strptime(date_from.replace('/', '-'), '%Y-%m-%d')
         dep_end = datetime.strptime(date_to.replace('/', '-'), '%Y-%m-%d')
         
-        # Generate monthly ranges
-        month_ranges = []
+        # Trip durations to search (in days)
+        trip_durations = [7, 14, 21]
+        
+        # Generate date combinations to search
+        # For each departure day, search for different trip durations
+        search_dates = []
         current = dep_start
         while current <= dep_end:
-            month_end = datetime(current.year, current.month, 28)  # Safe upper bound
-            if month_end > dep_end:
-                month_end = dep_end
-            month_ranges.append((current.strftime('%Y-%m-%d'), month_end.strftime('%Y-%m-%d')))
-            # Move to next month
-            if current.month == 12:
-                current = datetime(current.year + 1, 1, 1)
-            else:
-                current = datetime(current.year, current.month + 1, 1)
+            for duration in trip_durations:
+                ret_date = current + timedelta(days=duration)
+                if ret_date <= dep_end:
+                    search_dates.append((current.strftime('%Y-%m-%d'), ret_date.strftime('%Y-%m-%d'), duration))
+            current += timedelta(days=1)  # Each day as potential departure
         
-        print(f"  Searching {len(month_ranges)} month ranges: {month_ranges}", flush=True)
+        # Limit searches to avoid too many API calls
+        max_searches = 30  # Max searches per route
+        if len(search_dates) > max_searches:
+            # Sample evenly across the range
+            step = len(search_dates) // max_searches
+            search_dates = search_dates[::step][:max_searches]
+        
+        print(f"  Searching {len(search_dates)} date combinations...", flush=True)
         
         cheapest_by_route = {}  # (origin, destination) -> flight
         
         for origin in fly_from:
-            print(f"Searching from {origin} (monthly split)...", flush=True)
+            print(f"Searching from {origin} (flexible dates)...", flush=True)
             for dest in search_dests:
                 best_price = float('inf')
                 best_flight = None
                 
-                # Search each month range
-                for month_from, month_to in month_ranges:
+                # Search each date combination
+                for dep_date, ret_date, duration in search_dates:
                     params = {
                         'originLocationCode': origin,
                         'destinationLocationCode': dest,
-                        'departureDate': month_from,
-                        'returnDate': month_to,
+                        'departureDate': dep_date,
+                        'returnDate': ret_date,
                         'adults': 1,
                         'maxPrice': price_to,
                         'max': limit,
