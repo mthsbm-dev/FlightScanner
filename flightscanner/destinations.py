@@ -40,10 +40,6 @@ DESTINATIONS = {
         "HAN",  # Hanoi, Vietnam
         "JKT",  # Jakarta, Indonesia
     ],
-    # Europe
-    "europe": [
-        "LIS",  # Lisbon, Portugal
-    ],
 }
 
 # Flat list of all destinations
