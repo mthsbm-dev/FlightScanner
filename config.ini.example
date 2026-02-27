@@ -10,6 +10,8 @@ client_secret = YOUR_AMADEUS_CLIENT_SECRET
 [search]
 # Comma-separated origin IATA codes or major hubs. Default includes common European hubs.
 origins = FRA, LHR, MUC, CDG, AMS, MAD, BCN, ZRH, BER
+# Comma-separated destination IATA codes (optional - uses hardcoded list if not set)
+destinations = YVR, YOW, YHZ, YYZ, MEX, CUN, NRT, ICN, SIN, BKK
 currency = EUR
 max_price = 1800
 min_duration_hours = 8

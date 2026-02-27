@@ -60,14 +60,16 @@ def log_amadeus_call(endpoint: str, params: dict, response_status: str, error: s
 
 
 class AmadeusClient:
-    def __init__(self, client_id: str, client_secret: str, max_destinations: int = 30):
+    def __init__(self, client_id: str, client_secret: str, max_destinations: int = 30, destinations: List[str] = None):
         self.client = Client(
             client_id=client_id,
             client_secret=client_secret
         )
         self.max_destinations = max_destinations  # Rate limiting protection
+        # Use provided destinations or fall back to ALL_DESTINATIONS
+        self.destinations = destinations if destinations else ALL_DESTINATIONS[:max_destinations]
 
-    def search_flexible_dates(self, fly_from: List[str], date_from: str, date_to: str, currency: str = "EUR", price_to: int = 1800, limit: int = 20, cabin: str | None = None, max_stopovers: int | None = None) -> List[Dict[str, Any]]:
+    def search_flexible_dates(self, fly_from: List[str], date_from: str, date_to: str, currency: str = "EUR", price_to: int = 1800, limit: int = 20, cabin: str | None = None, max_stopovers: int | None = None, destinations: List[str] = None) -> List[Dict[str, Any]]:
         """
         Search for flights by splitting the date range into months and combining results.
         
@@ -75,7 +77,8 @@ class AmadeusClient:
         """
         from datetime import datetime
         results = []
-        destinations = ALL_DESTINATIONS[:self.max_destinations]
+        # Use provided destinations or fall back to default
+        search_dests = destinations if destinations else self.destinations
         travel_class = 'BUSINESS' if cabin == 'C' else 'ECONOMY'
         
         # Parse date range and split into monthly chunks
@@ -102,7 +105,7 @@ class AmadeusClient:
         
         for origin in fly_from:
             print(f"Searching from {origin} (monthly split)...", flush=True)
-            for dest in destinations:
+            for dest in search_dests:
                 best_price = float('inf')
                 best_flight = None
                 
@@ -147,14 +150,15 @@ class AmadeusClient:
         print(f"  -> Found {len(results)} flights from {origin}", flush=True)
         return results
 
-    def search(self, fly_from: List[str], date_from: str, date_to: str, currency: str = "EUR", price_to: int = 1800, limit: int = 20, cabin: str | None = None, max_stopovers: int | None = None) -> List[Dict[str, Any]]:
+    def search(self, fly_from: List[str], date_from: str, date_to: str, currency: str = "EUR", price_to: int = 1800, limit: int = 20, cabin: str | None = None, max_stopovers: int | None = None, destinations: List[str] = None) -> List[Dict[str, Any]]:
         """
         Search for flights using Amadeus API.
         
         Searches from each origin to all configured destinations.
         """
         results = []
-        destinations = ALL_DESTINATIONS[:self.max_destinations]
+        # Use provided destinations or fall back to default
+        search_dests = destinations if destinations else self.destinations
         
         travel_class = 'BUSINESS' if cabin == 'C' else 'ECONOMY'
         
@@ -164,7 +168,7 @@ class AmadeusClient:
         
         for origin in fly_from:
             print(f"Searching from {origin}...", flush=True)
-            for dest in destinations:
+            for dest in search_dests:
                 params = {
                     'originLocationCode': origin,
                     'destinationLocationCode': dest,

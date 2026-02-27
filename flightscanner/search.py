@@ -66,6 +66,13 @@ def run_search(cfg, once: bool = True):
         
         raw_origins = cfg.get("search", "origins", fallback=None)
         fly_from = resolve_origins(raw_origins)
+        
+        # Read destinations from config (comma-separated IATA codes)
+        raw_destinations = cfg.get("search", "destinations", fallback=None)
+        destinations = None
+        if raw_destinations:
+            destinations = [d.strip() for d in raw_destinations.split(',') if d.strip()]
+        
         date_from = cfg.get("search", "date_from")
         date_to = cfg.get("search", "date_to")
         currency = cfg.get("search", "currency", fallback="EUR")
@@ -75,7 +82,7 @@ def run_search(cfg, once: bool = True):
         max_stopovers = cfg.getint("search", "max_stopovers", fallback=None)
         use_flexible_dates = cfg.getboolean("search", "flexible_dates", fallback=True)
         
-        client = AmadeusClient(amadeus_client_id, amadeus_client_secret)
+        client = AmadeusClient(amadeus_client_id, amadeus_client_secret, destinations=destinations)
         
         if use_flexible_dates:
             # Use Flight Dates API to find cheapest date combinations
