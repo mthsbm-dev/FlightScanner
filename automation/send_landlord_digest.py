@@ -186,55 +186,70 @@ def rule_classify(m: dict, rules: dict) -> tuple[str, float, str, str, str]:
     from_addr = _addr(m.get("from", ""))
     domain = get_domain(from_addr)
 
-    # attachment rule: real files (PDF/etc) are almost always important
-    if m.get("has_real_attachments"):
-        return "Sonstiges", 0.85, "detail", "high", "has-attachments"
+    cat, conf, list_mode, importance, reason = "Sonstiges", 0.3, "summary", "none", "default"
 
     # hard suppression
+    matched = False
     for pat in rules.get("suppress_subject_regex", []) if rules else []:
         try:
             if re.search(pat, subj):
-                return "Athena" if "landlord digest" in subj_l else "Werbung/Newsletter", 1.0, "suppress", "none", f"suppressed:{pat}"
+                cat = "Athena" if "landlord digest" in subj_l else "Werbung/Newsletter"
+                conf, list_mode, importance, reason = 1.0, "suppress", "none", f"suppressed:{pat}"
+                matched = True
+                break
         except re.error:
             continue
 
     # forced sender overrides
-    force = (rules.get("sender_force_category", {}) if rules else {}).get(from_addr)
-    if force:
-        # Börse default summary unless trigger
-        if force == "Börse/Aktien":
-            lm = "detail" if any(t in subj_l for t in rules.get("boerse_detail_triggers", [])) else "summary"
-            return force, 0.95, lm, "low", "forced-sender"
-        if force == "Athena":
-            return "Athena", 0.99, "detail", "low", "forced-sender"
-        if force == "Werbung/Newsletter":
-            return "Werbung/Newsletter", 0.95, "summary", "none", "forced-sender"
-        return force, 0.95, "detail", "low", "forced-sender"
+    if not matched:
+        force = (rules.get("sender_force_category", {}) if rules else {}).get(from_addr)
+        if force:
+            matched = True
+            if force == "Börse/Aktien":
+                lm = "detail" if any(t in subj_l for t in rules.get("boerse_detail_triggers", [])) else "summary"
+                cat, conf, list_mode, importance, reason = force, 0.95, lm, "low", "forced-sender"
+            elif force == "Athena":
+                cat, conf, list_mode, importance, reason = "Athena", 0.99, "detail", "low", "forced-sender"
+            elif force == "Werbung/Newsletter":
+                cat, conf, list_mode, importance, reason = "Werbung/Newsletter", 0.95, "summary", "none", "forced-sender"
+            else:
+                cat, conf, list_mode, importance, reason = force, 0.95, "detail", "low", "forced-sender"
 
     # domain allowlists
-    dom_allow = rules.get("sender_domain_allow", {}) if rules else {}
-    for cat, doms in dom_allow.items():
-        if domain and any(domain.endswith(d) for d in doms):
-            if cat == "Börse/Aktien":
-                lm = "detail" if any(t in subj_l for t in rules.get("boerse_detail_triggers", [])) else "summary"
-                return "Börse/Aktien", 0.9, lm, "low", "domain-allow"
-            if cat == "Werbung/Newsletter":
-                return "Werbung/Newsletter", 0.9, "summary", "none", "domain-allow"
-            if cat == "Vermieter":
-                return "Vermieter", 0.9, "detail", "high" if _contains_any(subj_l, ["defekt", "schaden", "mahnung", "frist", "zahlung"]) else "low", "domain-allow"
+    if not matched:
+        dom_allow = rules.get("sender_domain_allow", {}) if rules else {}
+        for dcat, doms in dom_allow.items():
+            if domain and any(domain.endswith(d) for d in doms):
+                matched = True
+                if dcat == "Börse/Aktien":
+                    lm = "detail" if any(t in subj_l for t in rules.get("boerse_detail_triggers", [])) else "summary"
+                    cat, conf, list_mode, importance, reason = "Börse/Aktien", 0.9, lm, "low", "domain-allow"
+                elif dcat == "Werbung/Newsletter":
+                    cat, conf, list_mode, importance, reason = "Werbung/Newsletter", 0.9, "summary", "none", "domain-allow"
+                elif dcat == "Vermieter":
+                    imp = "high" if _contains_any(subj_l, ["defekt", "schaden", "mahnung", "frist", "zahlung"]) else "low"
+                    cat, conf, list_mode, importance, reason = "Vermieter", 0.9, "detail", imp, "domain-allow"
+                break
 
     # hard subject patterns
-    pat = rules.get("subject_hard_patterns", {}) if rules else {}
-    for cat, keys in pat.items():
-        if _contains_any(subj, keys):
-            if cat == "Börse/Aktien":
-                lm = "detail" if any(t in subj_l for t in rules.get("boerse_detail_triggers", [])) else "summary"
-                return "Börse/Aktien", 0.8, lm, "low", "subject-pattern"
-            if cat == "Vermieter":
-                return "Vermieter", 0.8, "detail", "high" if _contains_any(subj_l, ["defekt", "schaden", "mahnung", "frist", "zahlung"]) else "low", "subject-pattern"
+    if not matched:
+        spat = rules.get("subject_hard_patterns", {}) if rules else {}
+        for scat, keys in spat.items():
+            if _contains_any(subj, keys):
+                matched = True
+                if scat == "Börse/Aktien":
+                    lm = "detail" if any(t in subj_l for t in rules.get("boerse_detail_triggers", [])) else "summary"
+                    cat, conf, list_mode, importance, reason = "Börse/Aktien", 0.8, lm, "low", "subject-pattern"
+                elif scat == "Vermieter":
+                    imp = "high" if _contains_any(subj_l, ["defekt", "schaden", "mahnung", "frist", "zahlung"]) else "low"
+                    cat, conf, list_mode, importance, reason = "Vermieter", 0.8, "detail", imp, "subject-pattern"
+                break
 
-    # conservative default
-    return "Sonstiges", 0.3, "summary", "none", "default"
+    # attachments upgrade importance (none→low); higher upgrades left to the judge
+    if m.get("has_real_attachments") and importance == "none":
+        importance = "low"
+
+    return cat, conf, list_mode, importance, reason
 
 
 def is_suppressed(m: dict) -> bool:
