@@ -104,7 +104,7 @@ def process_file(filepath, state, col):
     
     # Insert to MongoDB
     if entries:
-        col.insert_many(entries)
+        col.insert_many(entries, ordered=False)
         print(f"Logged {len(entries)} LLM calls from {filepath.name}")
     else:
         print(f"No new LLM calls in {filepath.name}")
@@ -114,11 +114,6 @@ def process_file(filepath, state, col):
 def main():
     state = load_state()
     col = get_mongo()
-    
-    # Track all seen message IDs to avoid duplicates
-    existing_ids = set()
-    for doc in col.find({}, {"_id": 1}):
-        existing_ids.add(str(doc["_id"]))
     
     total_new = 0
     
