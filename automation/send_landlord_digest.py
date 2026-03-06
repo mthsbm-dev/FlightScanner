@@ -7,7 +7,7 @@ Behavior:
 - Builds a structured digest:
   - Header with counts (by folder + by category)
   - Optional "WICHTIG" section (heuristic)
-  - Details listed only for high-signal categories (Vermieter, Börse/Aktien, Athena)
+  - Details listed only for high-signal categories (Vermieter, Börse/Aktien, Tech, Athena)
     grouped by thread ("(+n ähnlich)")
   - Low-signal categories (Werbung/Newsletter, Sonstiges) are summarized only
     (top senders + top threads)
@@ -42,7 +42,7 @@ LOCAL_LLM_SH = WORKSPACE / "scripts" / "local_llm.sh"
 JUDGE_HELPER = WORKSPACE / "scripts" / "anthropic_judge.py"
 JUDGE_CACHE_PATH = WORKSPACE / "memory" / "digest-judge-cache.json"
 
-HIGH_SIGNAL_CATS = ("Vermieter", "Börse/Aktien", "Athena")
+HIGH_SIGNAL_CATS = ("Vermieter", "Börse/Aktien", "Tech", "Athena")
 LOW_SIGNAL_CATS = ("Werbung/Newsletter", "Sonstiges")
 
 
@@ -229,6 +229,8 @@ def rule_classify(m: dict, rules: dict) -> tuple[str, float, str, str, str]:
                 elif dcat == "Vermieter":
                     imp = "high" if _contains_any(subj_l, ["defekt", "schaden", "mahnung", "frist", "zahlung"]) else "low"
                     cat, conf, list_mode, importance, reason = "Vermieter", 0.9, "detail", imp, "domain-allow"
+                elif dcat == "Tech":
+                    cat, conf, list_mode, importance, reason = "Tech", 0.9, "detail", "low", "domain-allow"
                 break
 
     # hard subject patterns
@@ -243,6 +245,8 @@ def rule_classify(m: dict, rules: dict) -> tuple[str, float, str, str, str]:
                 elif scat == "Vermieter":
                     imp = "high" if _contains_any(subj_l, ["defekt", "schaden", "mahnung", "frist", "zahlung"]) else "low"
                     cat, conf, list_mode, importance, reason = "Vermieter", 0.8, "detail", imp, "subject-pattern"
+                elif scat == "Tech":
+                    cat, conf, list_mode, importance, reason = "Tech", 0.8, "detail", "low", "subject-pattern"
                 break
 
     # attachments always mean important — override to high regardless of category
@@ -315,7 +319,7 @@ def phi_classify(todo: list[dict], max_items: int = 10, timeout_s: int = 8) -> l
     prompt = (
         "Classify emails into categories for a landlord+investing digest.\n"
         "Return ONLY JSON array. Each element: {id, category, list_mode, importance, confidence}.\n"
-        "Allowed category: Vermieter|Börse/Aktien|Athena|Werbung/Newsletter|Sonstiges.\n"
+        "Allowed category: Vermieter|Börse/Aktien|Tech|Athena|Werbung/Newsletter|Sonstiges.\n"
         "Allowed list_mode: detail|summary|suppress.\n"
         "importance: none|low|high.\n"
         "Börse/Aktien should be summary unless it contains alerts/dividends/earnings.\n"
@@ -457,7 +461,7 @@ def judge_classify(messages: list[dict], rules: dict, max_judge: int = 6) -> dic
         todo = todo[:max_judge]
         prompt = (
             "You are a strict email triage judge for a landlord+investing digest.\n"
-            "Classify each item into exactly one category: Vermieter, Börse/Aktien, Athena, Werbung/Newsletter, Sonstiges.\n"
+            "Classify each item into exactly one category: Vermieter, Börse/Aktien, Tech, Athena, Werbung/Newsletter, Sonstiges.\n"
             "Also decide list_mode: detail|summary|suppress. importance: none|low|high.\n"
             "Börse/Aktien should be summary unless it contains alerts/dividends/earnings.\n"
             "Return ONLY JSON array. Each element MUST be {id, category, list_mode, importance}.\n\n"
@@ -538,7 +542,7 @@ def to_digest_email(m: dict, judge_cache: dict[str, dict] | None = None) -> Dige
         j = judge_cache.get(fp)
         if j:
             jcat = j.get("category")
-            if jcat in ("Vermieter", "Börse/Aktien", "Athena", "Werbung/Newsletter", "Sonstiges"):
+            if jcat in ("Vermieter", "Börse/Aktien", "Tech", "Athena", "Werbung/Newsletter", "Sonstiges"):
                 cat = jcat
             mode = j.get("list_mode")
             if mode in ("suppress", "summary"):
@@ -569,7 +573,7 @@ def extract_highlights(items: list[DigestEmail], max_items: int = 8) -> list[str
     date_re = re.compile(r"\b(\d{1,2}\.\d{1,2}\.\d{2,4}|\d{4}-\d{2}-\d{2})\b")
 
     for e in items:
-        if e.category not in ("Vermieter", "Börse/Aktien"):
+        if e.category not in ("Vermieter", "Börse/Aktien", "Tech"):
             continue
         blob = (e.subject + "\n" + e.body_snip).lower()
         if not any(k in blob for k in ["frist", "dring", "heute", "morgen", "termin", "zahlung", "überweisen", "kündig", "mahnung", "reparatur", "schaden", "handwerker", "wartung", "dividende", "earnings", "kursalarm"]):
@@ -666,7 +670,7 @@ def render_text(now: datetime, all_items: list[DigestEmail], imap_warnings: list
     imap_warnings = imap_warnings or []
 
     # Important section considers non-suppressed high-signal emails
-    important_pool = [e for e in all_items if (e.category in ("Vermieter", "Börse/Aktien") and not e.suppressed)]
+    important_pool = [e for e in all_items if (e.category in ("Vermieter", "Börse/Aktien", "Tech") and not e.suppressed)]
     highlights = extract_highlights(important_pool)
 
     lines: list[str] = []
@@ -773,7 +777,7 @@ def render_html(now: datetime, all_items: list[DigestEmail], imap_warnings: list
     cat_counts = Counter([e.category for e in all_items])
     imap_warnings = imap_warnings or []
 
-    important_pool = [e for e in all_items if (e.category in ("Vermieter", "Börse/Aktien") and not e.suppressed)]
+    important_pool = [e for e in all_items if (e.category in ("Vermieter", "Börse/Aktien", "Tech") and not e.suppressed)]
     highlights = extract_highlights(important_pool)
 
     def esc(s: str) -> str:
