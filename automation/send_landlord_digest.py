@@ -245,9 +245,9 @@ def rule_classify(m: dict, rules: dict) -> tuple[str, float, str, str, str]:
                     cat, conf, list_mode, importance, reason = "Vermieter", 0.8, "detail", imp, "subject-pattern"
                 break
 
-    # attachments upgrade importance (none→low); higher upgrades left to the judge
-    if m.get("has_real_attachments") and importance == "none":
-        importance = "low"
+    # attachments always mean important — override to high regardless of category
+    if m.get("has_real_attachments"):
+        importance = "high"
 
     return cat, conf, list_mode, importance, reason
 
