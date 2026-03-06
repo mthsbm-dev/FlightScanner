@@ -164,6 +164,12 @@ def main():
             if not uids:
                 continue
 
+            # IMAP RFC quirk: UID X:* returns the last UID even if X > last UID.
+            # Filter out UIDs that we've already processed.
+            uids = [u for u in uids if u > last_uid]
+            if not uids:
+                continue
+
             uids = sorted(uids)
             # cap fetch to newest if too many
             if len(uids) > MAX_UID_FETCH:
